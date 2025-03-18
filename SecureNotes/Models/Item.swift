@@ -1,12 +1,4 @@
-//
-//  Item.swift
-//  SecureNotes
-//
-//  Created by Merlin Kreuzkam on 17.03.25.
-//
-
-
-// DATEI: Item.swift (Basisprotokoll und Modelle)
+// DATEI: Models/Item.swift
 import SwiftUI
 
 protocol Item: Identifiable, Codable {
@@ -100,7 +92,12 @@ struct Folder: Identifiable, Codable {
             let g = try container.decode(Double.self, forKey: .colorG)
             let b = try container.decode(Double.self, forKey: .colorB)
             let a = try container.decode(Double.self, forKey: .colorA)
+            
+            #if os(macOS)
+            self.color = Color(NSColor(calibratedRed: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: CGFloat(a)))
+            #else
             self.color = Color(.sRGB, red: r, green: g, blue: b, opacity: a)
+            #endif
         } else {
             self.color = nil
         }
@@ -114,11 +111,29 @@ struct Folder: Identifiable, Codable {
         try container.encode(modificationDate, forKey: .modificationDate)
         try container.encodeIfPresent(parentFolderId, forKey: .parentFolderId)
         
-        if let color = color, let components = color.cgColor?.components, components.count >= 4 {
-            try container.encode(Double(components[0]), forKey: .colorR)
-            try container.encode(Double(components[1]), forKey: .colorG)
-            try container.encode(Double(components[2]), forKey: .colorB)
-            try container.encode(Double(components[3]), forKey: .colorA)
+        if let color = color {
+            var r: CGFloat = 0
+            var g: CGFloat = 0
+            var b: CGFloat = 0
+            var a: CGFloat = 0
+            
+            #if os(macOS)
+            if let nsColor = NSColor(color) {
+                nsColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+            }
+            #else
+            if let components = UIColor(color).cgColor.components, components.count >= 4 {
+                r = components[0]
+                g = components[1]
+                b = components[2]
+                a = components[3]
+            }
+            #endif
+            
+            try container.encode(Double(r), forKey: .colorR)
+            try container.encode(Double(g), forKey: .colorG)
+            try container.encode(Double(b), forKey: .colorB)
+            try container.encode(Double(a), forKey: .colorA)
         }
     }
 }

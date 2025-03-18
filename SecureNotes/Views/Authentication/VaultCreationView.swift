@@ -22,7 +22,7 @@ struct VaultCreationView: View {
     
     var body: some View {
         ZStack {
-            Color.fromHex("1B2838").edgesIgnoringSafeArea(.all)
+            Color.fromHex("1B2838").ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Header
@@ -317,21 +317,21 @@ struct VaultCreationView: View {
         )
         
         // Wenn verschlüsselt, setze das Passwort
-                if isEncrypted {
-                    let authService = AuthService()
-                    if authService.setupPassword(password) {
-                        if enableBiometrics {
-                            let encryptionService = EncryptionService()
-                            if let key = encryptionService.deriveKey(from: password) {
-                                authService.storeKeyInKeychain(key)
-                            }
-                        }
+        if isEncrypted {
+            let authService = AuthService()
+            if authService.setupPassword(password) {
+                if enableBiometrics {
+                    let encryptionService = EncryptionService()
+                    if let key = encryptionService.deriveKey(from: password) {
+                        authService.storeKeyInKeychain(key)
                     }
                 }
-                
-                // Benachrichtige den Caller über die Erstellung
-                onVaultCreated?(vault)
-                
-                return true
             }
         }
+        
+        // Benachrichtige den Caller über die Erstellung
+        onVaultCreated?(vault)
+        
+        return true
+    }
+}

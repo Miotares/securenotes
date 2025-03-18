@@ -10,7 +10,7 @@ struct VaultSelectionView: View {
     
     var body: some View {
         ZStack {
-            Color.fromHex("1B2838").edgesIgnoringSafeArea(.all)
+            Color.fromHex("1B2838").ignoresSafeArea()
             
             VStack(spacing: 20) {
                 // Header

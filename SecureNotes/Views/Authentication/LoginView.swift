@@ -19,7 +19,7 @@ struct LoginView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .edgesIgnoringSafeArea(.all)
+            .ignoresSafeArea()
             
             // Subtiles Muster für mehr Tiefe
             Image(systemName: "lock.shield")
