@@ -10,18 +10,38 @@ class AuthService {
         static let passwordHash = "com.securenotes.passwordHash"
         static let passwordSalt = "com.securenotes.passwordSalt"
         static let encryptionKey = "com.securenotes.encryptionKey"
+        static let service = "SecureNotes"  // Ein Dienst-Name für alle Einträge
     }
     
     private let encryptionService: EncryptionService
     
     init(encryptionService: EncryptionService = EncryptionService()) {
         self.encryptionService = encryptionService
+        
+        // Alle vorhandenen Schlüssel migrieren
+        migrateKeychainEntries()
+    }
+    
+    // Migriert Keychain-Einträge zum neuen Format ohne Abfragen
+    private func migrateKeychainEntries() {
+        // Versuche alle Einträge zu lesen und neu zu speichern
+        if let hashData = retrieveLegacyFromKeychain(key: KeychainKeys.passwordHash) {
+            _ = saveToKeychainSecurely(data: hashData, key: KeychainKeys.passwordHash)
+        }
+        
+        if let saltData = retrieveLegacyFromKeychain(key: KeychainKeys.passwordSalt) {
+            _ = saveToKeychainSecurely(data: saltData, key: KeychainKeys.passwordSalt)
+        }
+        
+        if let keyData = retrieveLegacyFromKeychain(key: KeychainKeys.encryptionKey) {
+            _ = saveToKeychainSecurely(data: keyData, key: KeychainKeys.encryptionKey)
+        }
     }
     
     // Prüft, ob bereits ein Passwort eingerichtet wurde
     func hasSetupPassword() -> Bool {
-        return retrieveFromKeychain(key: KeychainKeys.passwordHash) != nil &&
-               retrieveFromKeychain(key: KeychainKeys.passwordSalt) != nil
+        return retrieveFromKeychainSecurely(key: KeychainKeys.passwordHash) != nil &&
+               retrieveFromKeychainSecurely(key: KeychainKeys.passwordSalt) != nil
     }
     
     // Richtet ein neues Passwort ein
@@ -37,14 +57,14 @@ class AuthService {
         let passwordHashData = Data(passwordHash)
         
         // Speichere Hash und Salt im Keychain
-        return saveToKeychain(data: passwordHashData, key: KeychainKeys.passwordHash) &&
-               saveToKeychain(data: salt, key: KeychainKeys.passwordSalt)
+        return saveToKeychainSecurely(data: passwordHashData, key: KeychainKeys.passwordHash) &&
+               saveToKeychainSecurely(data: salt, key: KeychainKeys.passwordSalt)
     }
     
     // Überprüft ein eingegebenes Passwort
     func verifyPassword(_ password: String) -> Bool {
-        guard let storedHashData = retrieveFromKeychain(key: KeychainKeys.passwordHash),
-              let salt = retrieveFromKeychain(key: KeychainKeys.passwordSalt),
+        guard let storedHashData = retrieveFromKeychainSecurely(key: KeychainKeys.passwordHash),
+              let salt = retrieveFromKeychainSecurely(key: KeychainKeys.passwordSalt),
               let passwordData = password.data(using: .utf8) else {
             return false
         }
@@ -57,14 +77,13 @@ class AuthService {
     
     // Speichert den Verschlüsselungsschlüssel im Keychain für die Verwendung mit biometrischer Authentifizierung
     func storeKeyInKeychain(_ key: SymmetricKey) -> Bool {
-        return saveToKeychain(data: key.withUnsafeBytes { Data($0) },
-                              key: KeychainKeys.encryptionKey,
-                              withBiometrics: true)
+        return saveToKeychainSecurely(data: key.withUnsafeBytes { Data($0) },
+                              key: KeychainKeys.encryptionKey)
     }
     
     // Ruft den Verschlüsselungsschlüssel aus dem Keychain ab
     func retrieveKeyFromKeychain() -> SymmetricKey? {
-        guard let keyData = retrieveFromKeychain(key: KeychainKeys.encryptionKey) else {
+        guard let keyData = retrieveFromKeychainSecurely(key: KeychainKeys.encryptionKey) else {
             return nil
         }
         return SymmetricKey(data: keyData)
@@ -78,7 +97,7 @@ class AuthService {
         let canEvaluate = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
         
         return canEvaluate && error == nil &&
-               retrieveFromKeychain(key: KeychainKeys.encryptionKey) != nil
+               retrieveFromKeychainSecurely(key: KeychainKeys.encryptionKey) != nil
     }
     
     // Führt eine biometrische Authentifizierung durch
@@ -91,49 +110,42 @@ class AuthService {
         }
     }
     
-    // MARK: - Keychain-Hilfsmethoden
+    // MARK: - Neue Keychain-Methoden ohne Authentifizierungsabfragen
     
-    // Speichert Daten im Keychain
-    private func saveToKeychain(data: Data, key: String, withBiometrics: Bool = false) -> Bool {
+    // Speichert Daten sicher im Keychain ohne Authentifizierungsabfragen
+    private func saveToKeychainSecurely(data: Data, key: String) -> Bool {
         // Lösche eventuell vorhandenen Eintrag
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key
+            kSecAttrAccount as String: key,
+            kSecAttrService as String: KeychainKeys.service
         ]
         SecItemDelete(deleteQuery as CFDictionary)
         
-        // Erstelle neuen Eintrag
-        var query: [String: Any] = [
+        // Erstelle neuen Eintrag mit spezifischen Attributen, um Authentifizierung zu vermeiden
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key,
+            kSecAttrService as String: KeychainKeys.service,
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrIsInvisible as String: true,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail  // Verhindert jegliche UI
         ]
-        
-        // Füge biometrische Einschränkungen hinzu, wenn erforderlich
-        if withBiometrics {
-            let context = LAContext()
-            context.touchIDAuthenticationAllowableReuseDuration = 10
-            
-            var error: NSError?
-            guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-                return false
-            }
-            
-            query[kSecUseAuthenticationContext as String] = context
-        }
         
         let status = SecItemAdd(query as CFDictionary, nil)
         return status == errSecSuccess
     }
     
-    // Ruft Daten aus dem Keychain ab
-    private func retrieveFromKeychain(key: String) -> Data? {
+    // Liest Daten sicher aus dem Keychain ohne Authentifizierungsabfragen
+    private func retrieveFromKeychainSecurely(key: String) -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key,
+            kSecAttrService as String: KeychainKeys.service,
             kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail  // Verhindert jegliche UI
         ]
         
         var item: CFTypeRef?
@@ -144,5 +156,27 @@ class AuthService {
         }
         
         return data
+    }
+    
+    // MARK: - Legacy-Methoden (zur Migration alter Einträge)
+    
+    // Alt: Lesen von Daten im alten Format (mit möglichen Abfragen)
+    private func retrieveLegacyFromKeychain(key: String) -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUISkip
+        ]
+        
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        
+        if status == errSecSuccess, let data = item as? Data {
+            return data
+        }
+        
+        return nil
     }
 }
