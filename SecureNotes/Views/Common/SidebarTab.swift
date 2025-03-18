@@ -2,21 +2,22 @@
 //  SidebarTab.swift
 //  SecureNotes
 //
-//  Created by Merlin Kreuzkam on 17.03.25.
+//  Created by Merlin Kreuzkam on 18.03.25.
 //
 
 
-// Am besten in einer eigenen Datei: SidebarTab.swift
+// DATEI: Views/Common/SidebarTabKit.swift
 import SwiftUI
 
-enum SidebarTab: Hashable, Equatable {
+// Zentrale Definition des SidebarTab-Enums für die gesamte Anwendung
+public enum SidebarTab: Hashable, Equatable {
     case inbox
     case notes
     case links
     case folder(FolderViewModel.Folder)
     
     // Implementierung für Hashable
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         switch self {
         case .inbox:
             hasher.combine(0)
@@ -31,7 +32,7 @@ enum SidebarTab: Hashable, Equatable {
     }
     
     // Implementierung für Equatable
-    static func == (lhs: SidebarTab, rhs: SidebarTab) -> Bool {
+    public static func == (lhs: SidebarTab, rhs: SidebarTab) -> Bool {
         switch (lhs, rhs) {
         case (.inbox, .inbox), (.notes, .notes), (.links, .links):
             return true
@@ -41,4 +42,9 @@ enum SidebarTab: Hashable, Equatable {
             return false
         }
     }
+}
+
+// Stellt die SidebarTab-Enum für andere Module bereit
+public struct SidebarTabKit {
+    // Kann später für weitere gemeinsam genutzte Funktionen und Datenstrukturen verwendet werden
 }

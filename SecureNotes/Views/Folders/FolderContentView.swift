@@ -1,11 +1,3 @@
-//
-//  FolderContentView.swift
-//  SecureNotes
-//
-//  Created by Merlin Kreuzkam on 17.03.25.
-//
-
-
 // DATEI: Views/Folders/FolderContentView.swift
 import SwiftUI
 
@@ -21,27 +13,43 @@ struct FolderContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Suchleiste und Tabs
-            VStack(spacing: 0) {
+            VStack(spacing: 10) {
                 // Suchleiste
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
+                        .font(.system(size: 12))
                     
                     TextField("Suchen...", text: $searchText)
-                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .textFieldStyle(PlainTextFieldStyle())
                     
                     if !searchText.isEmpty {
                         Button(action: { searchText = "" }) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.secondary)
+                                .font(.system(size: 12))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(PlainButtonStyle())
                     }
                 }
                 .padding(8)
-                .background(Color(.textBackgroundColor))
+                .background(Color(.textBackgroundColor).opacity(0.4))
                 .cornerRadius(8)
-                .padding([.horizontal, .top])
+                .padding([.horizontal, .top], 16)
+                
+                // Header
+                HStack {
+                    Text(folder.name)
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Text("\(folderItemCount) \(folderItemCount == 1 ? "Element" : "Elemente")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 16)
                 
                 // Tabs
                 HStack {
@@ -69,9 +77,10 @@ struct FolderContentView: View {
                     
                     Spacer()
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 16)
                 
                 Divider()
+                    .padding(.horizontal, 16)
             }
             
             // Inhaltsliste
@@ -81,79 +90,226 @@ struct FolderContentView: View {
                 folderLinksList
             }
         }
-        .navigationTitle(folder.name)
+    }
+    
+    // Anzahl der Elemente im Ordner
+    private var folderItemCount: Int {
+        return filteredFolderNotes.count + filteredFolderLinks.count
     }
     
     // Notizenliste im Ordner
     private var folderNotesList: some View {
-        List(selection: Binding(
-            get: { selectedNote?.id },
-            set: { newValue in
-                if let id = newValue,
-                   let note = filteredFolderNotes.first(where: { $0.id == id }) {
-                    selectedNote = note
-                    selectedLink = nil
+        ScrollView {
+            LazyVStack(spacing: 1) {
+                ForEach(filteredFolderNotes) { note in
+                    noteRow(for: note)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selectedNote = note
+                            selectedLink = nil
+                        }
+                        .contextMenu {
+                            Button(action: {
+                                // In Ordner verschieben
+                            }) {
+                                Label("In Ordner verschieben", systemImage: "folder")
+                            }
+                            
+                            Divider()
+                            
+                            Button(role: .destructive, action: {
+                                notesManager.deleteNote(note.id)
+                                if selectedNote?.id == note.id {
+                                    selectedNote = nil
+                                }
+                            }) {
+                                Label("Löschen", systemImage: "trash")
+                            }
+                        }
                 }
             }
-        )) {
-            ForEach(filteredFolderNotes) { note in
-                HStack {
-                    Image(systemName: "note.text")
-                        .foregroundColor(.green)
-                    
-                    VStack(alignment: .leading) {
-                        Text(note.title)
-                            .font(.headline)
+            .padding(.vertical, 8)
+        }
+    }
+    
+    // Einzelne Notizzeile
+    private func noteRow(for note: NotesManager.Note) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(note.title)
+                .font(.headline)
+                .foregroundColor(.primary)
+                .lineLimit(1)
+            
+            Text(note.preview)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+            
+            HStack {
+                Text(formattedDate(note.modificationDate))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                // Tags anzeigen
+                if !note.tags.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(note.tags.prefix(2), id: \.self) { tag in
+                            Text(tag)
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(4)
+                        }
                         
-                        Text(note.preview)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
+                        if note.tags.count > 2 {
+                            Text("+\(note.tags.count - 2)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
-                .tag(note.id)
             }
         }
-        .listStyle(.sidebar)
+        .padding(12)
+        .background(
+            selectedNote?.id == note.id ?
+                Color.blue.opacity(0.1) :
+                Color.clear
+        )
+        .cornerRadius(6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(
+                    selectedNote?.id == note.id ?
+                        Color.blue.opacity(0.3) :
+                        Color.clear,
+                    lineWidth: 1
+                )
+        )
+        .padding(.horizontal, 16)
     }
     
     // Linksliste im Ordner
     private var folderLinksList: some View {
-        List(selection: Binding(
-            get: { selectedLink?.id },
-            set: { newValue in
-                if let id = newValue,
-                   let link = filteredFolderLinks.first(where: { $0.id == id }) {
-                    selectedLink = link
-                    selectedNote = nil
+        ScrollView {
+            LazyVStack(spacing: 1) {
+                ForEach(filteredFolderLinks) { link in
+                    linkRow(for: link)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selectedLink = link
+                            selectedNote = nil
+                        }
+                        .contextMenu {
+                            Button(action: {
+                                NSWorkspace.shared.open(link.url)
+                            }) {
+                                Label("Im Browser öffnen", systemImage: "safari")
+                            }
+                            
+                            Button(action: {
+                                // In Ordner verschieben
+                            }) {
+                                Label("In Ordner verschieben", systemImage: "folder")
+                            }
+                            
+                            Divider()
+                            
+                            Button(role: .destructive, action: {
+                                linkViewModel.deleteLink(link.id)
+                                if selectedLink?.id == link.id {
+                                    selectedLink = nil
+                                }
+                            }) {
+                                Label("Löschen", systemImage: "trash")
+                            }
+                        }
                 }
             }
-        )) {
-            ForEach(filteredFolderLinks) { link in
+            .padding(.vertical, 8)
+        }
+    }
+    
+    // Einzelne Link-Zeile
+    private func linkRow(for link: LinkViewModel.Link) -> some View {
+        HStack(spacing: 12) {
+            // Favicon
+            Group {
+                if let favicon = link.favicon, let nsImage = NSImage(data: favicon) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .frame(width: 20, height: 20)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                } else {
+                    Image(systemName: "link")
+                        .font(.system(size: 16))
+                        .foregroundColor(.blue)
+                        .frame(width: 20, height: 20)
+                }
+            }
+            
+            // Link Details
+            VStack(alignment: .leading, spacing: 2) {
+                Text(link.title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                
+                Text(link.url.host ?? link.url.absoluteString)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                
+                // Letzte Änderung und Tags
                 HStack {
-                    if let favicon = link.favicon, let nsImage = NSImage(data: favicon) {
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .frame(width: 16, height: 16)
-                    } else {
-                        Image(systemName: "link")
-                            .foregroundColor(.blue)
-                    }
+                    Text(formattedDate(link.modificationDate))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     
-                    VStack(alignment: .leading) {
-                        Text(link.title)
-                            .font(.headline)
-                        
-                        Text(link.url.absoluteString)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
+                    Spacer()
+                    
+                    // Tags
+                    if !link.tags.isEmpty {
+                        HStack(spacing: 4) {
+                            ForEach(link.tags.prefix(1), id: \.self) { tag in
+                                Text(tag)
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.blue.opacity(0.1))
+                                    .cornerRadius(4)
+                            }
+                            
+                            if link.tags.count > 1 {
+                                Text("+\(link.tags.count - 1)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                 }
-                .tag(link.id)
             }
         }
-        .listStyle(.sidebar)
+        .padding(12)
+        .background(
+            selectedLink?.id == link.id ?
+                Color.blue.opacity(0.1) :
+                Color.clear
+        )
+        .cornerRadius(6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(
+                    selectedLink?.id == link.id ?
+                        Color.blue.opacity(0.3) :
+                        Color.clear,
+                    lineWidth: 1
+                )
+        )
+        .padding(.horizontal, 16)
     }
     
     // Gefilterte Notizen im Ordner
@@ -185,5 +341,12 @@ struct FolderContentView: View {
                 $0.tags.contains(where: { $0.localizedCaseInsensitiveContains(searchText) })
             }
         }
+    }
+    
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
 }

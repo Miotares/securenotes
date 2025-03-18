@@ -1,111 +1,93 @@
 // DATEI: Views/ContentView.swift
 import SwiftUI
 
+// Importiere die zentrale Definition von SidebarTab
+// In einem echten Projekt würde dies durch die richtige Module-Import-Anweisung ersetzt
+// Für unser Projekt behandeln wir SidebarTabKit als Teil des Hauptmoduls
+
 struct ContentView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
-    @State private var selectedTab: SidebarTab = .inbox
+    @State private var selectedTab: SidebarTab = .notes
     @StateObject private var notesManager = NotesManager()
     @StateObject private var linkViewModel = LinkViewModel()
     @State private var selectedNote: NotesManager.Note?
     @State private var selectedLink: LinkViewModel.Link?
+    @State private var showingSidebar: Bool = true
     
     var body: some View {
         NavigationView {
             // Erste Spalte: Seitenleiste
-            VStack {
-                SidebarView(selectedTab: $selectedTab)
-                    .environmentObject(notesManager)
-                    .environmentObject(linkViewModel)
+            ZStack {
+                Color(.windowBackgroundColor).opacity(0.15)
+                    .edgesIgnoringSafeArea(.all)
                 
-                Spacer()
-                
-                // Aktionsbuttons unten in der Seitenleiste
-                Divider()
-                
-                HStack(spacing: 4) {
-                    Button(action: createNewNote) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "square.and.pencil")
-                                .font(.system(size: 20))
-                            Text("Neue Notiz")
-                                .font(.system(size: 11))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                VStack(spacing: 0) {
+                    // Sidebar Header
+                    HStack {
+                        Text("SecureNotes")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        Spacer()
                     }
-                    .buttonStyle(ButtonTileStyle(color: .green))
+                    .padding([.horizontal, .top])
+                    .padding(.bottom, 8)
                     
-                    Button(action: createNewLink) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "link.badge.plus")
-                                .font(.system(size: 20))
-                            Text("Neuer Link")
-                                .font(.system(size: 11))
+                    // Seitenleiste Inhalt
+                    SidebarView(selectedTab: $selectedTab)
+                        .environmentObject(notesManager)
+                        .environmentObject(linkViewModel)
+                    
+                    Spacer()
+                    
+                    // Aktionsbuttons unten in der Seitenleiste
+                    VStack(spacing: 0) {
+                        Divider()
+                        
+                        HStack(spacing: 0) {
+                            Button(action: createNewNote) {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "square.and.pencil")
+                                        .font(.system(size: 18))
+                                    Text("Neue Notiz")
+                                        .font(.system(size: 11))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                            }
+                            .buttonStyle(SidebarButtonStyle(color: .green))
+                            
+                            Divider()
+                                .frame(height: 40)
+                            
+                            Button(action: createNewLink) {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "link.badge.plus")
+                                        .font(.system(size: 18))
+                                    Text("Neuer Link")
+                                        .font(.system(size: 11))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                            }
+                            .buttonStyle(SidebarButtonStyle(color: .blue))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
                     }
-                    .buttonStyle(ButtonTileStyle(color: .blue))
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 8)
             }
+            .frame(minWidth: 220, maxWidth: 250)
             
             // Zweite Spalte: Inhaltsübersicht
             Group {
-                switch selectedTab {
-                case .inbox:
-                    InboxListView(selectedNote: $selectedNote, selectedLink: $selectedLink)
-                        .environmentObject(notesManager)
-                        .environmentObject(linkViewModel)
-                        .onChange(of: selectedLink) { _ in
-                            // Stelle sicher, dass wenn ein Link ausgewählt wird, keine Notiz ausgewählt ist
-                            if selectedLink != nil {
-                                selectedNote = nil
-                            }
-                        }
-                        .onChange(of: selectedNote) { _ in
-                            // Stelle sicher, dass wenn eine Notiz ausgewählt wird, kein Link ausgewählt ist
-                            if selectedNote != nil {
-                                selectedLink = nil
-                            }
-                        }
-                case .notes:
-                    NoteListColumn(selectedNote: $selectedNote)
-                        .environmentObject(notesManager)
-                        .onChange(of: selectedNote) { _ in
-                            // Deselektiere Links wenn eine Notiz ausgewählt wird
-                            selectedLink = nil
-                        }
-                case .links:
-                    LinkListColumn(selectedLink: $selectedLink)
-                        .environmentObject(linkViewModel)
-                        .onChange(of: selectedLink) { _ in
-                            // Deselektiere Notizen wenn ein Link ausgewählt wird
-                            selectedNote = nil
-                        }
-                case .folder(let folder):
-                    FolderContentView(folder: folder, selectedNote: $selectedNote, selectedLink: $selectedLink)
-                        .environmentObject(notesManager)
-                        .environmentObject(linkViewModel)
-                        .onChange(of: selectedNote) { _ in
-                            if selectedNote != nil {
-                                selectedLink = nil
-                            }
-                        }
-                        .onChange(of: selectedLink) { _ in
-                            if selectedLink != nil {
-                                selectedNote = nil
-                            }
-                        }
-                }
+                // Explizite Typprüfung für den Switch
+                contentForSelectedTab
             }
             .frame(minWidth: 250)
+            .background(Color(.windowBackgroundColor).opacity(0.6))
             
             // Dritte Spalte: Detailansicht
             Group {
                 if let note = selectedNote {
-                    NoteDetailView(note: note)
+                    MinimalistNoteEditorView(note: note)
                         .environmentObject(notesManager)
                 } else if let link = selectedLink {
                     LinkDetailView(link: link)
@@ -115,15 +97,67 @@ struct ContentView: View {
                 }
             }
             .frame(minWidth: 400)
+            .background(Color(.textBackgroundColor).opacity(0.4))
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button(action: toggleSidebar) {
                     Image(systemName: "sidebar.left")
+                        .foregroundColor(.primary)
                 }
+                .help("Seitenleiste ein-/ausblenden")
+            }
+            
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: {
+                    authViewModel.signOut()
+                }) {
+                    Image(systemName: "lock.fill")
+                        .foregroundColor(.red)
+                }
+                .help("Abmelden")
             }
         }
+        .navigationTitle("")
         .frame(minWidth: 900, minHeight: 600)
+    }
+    
+    // Extrahiert die View für den ausgewählten Tab, damit der Swift-Compiler besser arbeiten kann
+    @ViewBuilder
+    private var contentForSelectedTab: some View {
+        switch selectedTab {
+        case .inbox:
+            NoteListColumn(selectedNote: $selectedNote)
+                .environmentObject(notesManager)
+        case .notes:
+            NoteListColumn(selectedNote: $selectedNote)
+                .environmentObject(notesManager)
+                .onChange(of: selectedNote) { _ in
+                    // Deselektiere Links wenn eine Notiz ausgewählt wird
+                    selectedLink = nil
+                }
+        case .links:
+            LinkListColumn(selectedLink: $selectedLink)
+                .environmentObject(linkViewModel)
+                .onChange(of: selectedLink) { _ in
+                    // Deselektiere Notizen wenn ein Link ausgewählt wird
+                    selectedNote = nil
+                }
+        case .folder(let folder):
+            FolderContentView(folder: folder, selectedNote: $selectedNote, selectedLink: $selectedLink)
+                .environmentObject(notesManager)
+                .environmentObject(linkViewModel)
+                .onChange(of: selectedNote) { _ in
+                    if selectedNote != nil {
+                        selectedLink = nil
+                    }
+                }
+                .onChange(of: selectedLink) { _ in
+                    if selectedLink != nil {
+                        selectedNote = nil
+                    }
+                }
+        }
     }
     
     private func createNewNote() {
@@ -171,7 +205,24 @@ struct ContentView: View {
     }
     
     private func toggleSidebar() {
+        showingSidebar.toggle()
         NSApp.keyWindow?.firstResponder?.tryToPerform(#selector(NSSplitViewController.toggleSidebar(_:)), with: nil)
+    }
+}
+
+// Button-Style für die Aktionsbuttons in der Seitenleiste
+struct SidebarButtonStyle: ButtonStyle {
+    var color: Color
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundColor(configuration.isPressed ? .white : color)
+            .background(
+                configuration.isPressed ?
+                    color.opacity(0.8) :
+                    Color(.windowBackgroundColor).opacity(0.6)
+            )
+            .contentShape(Rectangle())
     }
 }
 
@@ -180,40 +231,27 @@ struct EmptyDetailView: View {
     var body: some View {
         VStack {
             Spacer()
-            Image(systemName: "hand.tap")
-                .font(.system(size: 50))
-                .foregroundColor(.secondary)
-                .padding(.bottom, 20)
-            Text("Keine Auswahl")
-                .font(.title)
-                .foregroundColor(.secondary)
-            Text("Wähle eine Notiz oder einen Link aus")
-                .foregroundColor(.secondary)
+            
+            VStack(spacing: 20) {
+                Image(systemName: "square.text.square")
+                    .font(.system(size: 60))
+                    .foregroundColor(.secondary.opacity(0.6))
+                
+                Text("Keine Auswahl")
+                    .font(.title)
+                    .foregroundColor(.secondary)
+                
+                Text("Wähle eine Notiz oder einen Link aus")
+                    .foregroundColor(.secondary)
+            }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.gray.opacity(0.05))
+            )
+            
             Spacer()
         }
-    }
-}
-
-// Benutzerdefinierter Button-Style für die Aktionsbuttons
-struct ButtonTileStyle: ButtonStyle {
-    var color: Color
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundColor(configuration.isPressed ? .white : color)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(configuration.isPressed ? color : color.opacity(0.1))
-            )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-// Für die Vorschau
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-            .environmentObject(AuthViewModel())
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

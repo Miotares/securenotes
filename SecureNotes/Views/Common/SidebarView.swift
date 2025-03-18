@@ -1,105 +1,137 @@
 // DATEI: Views/Common/SidebarView.swift
 import SwiftUI
+import Combine
+
+// Importiere die zentrale Definition von SidebarTab
+// In einem echten Projekt würde dies durch die richtige Module-Import-Anweisung ersetzt
+// Für unser Projekt behandeln wir SidebarTabKit als Teil des Hauptmoduls
 
 struct SidebarView: View {
     @Binding var selectedTab: SidebarTab
     @StateObject private var folderViewModel = FolderViewModel()
     @State private var showingNewFolderSheet = false
+    @State private var searchText = ""
     
     var body: some View {
-        List(selection: $selectedTab) {
-            Section(header:
-                Text("BIBLIOTHEK")
-                    .font(.system(size: 11, weight: .semibold))
+        VStack(spacing: 0) {
+            // Suchleiste
+            HStack {
+                Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
-            ) {
-                sidebarItem(
-                    icon: "tray.fill",
-                    title: "Eingang",
-                    tab: .inbox,
-                    iconColor: .blue
-                )
+                    .font(.system(size: 12))
                 
-                sidebarItem(
-                    icon: "note.text",
-                    title: "Alle Notizen",
-                    tab: .notes,
-                    iconColor: .green
-                )
+                TextField("Suchen...", text: $searchText)
+                    .font(.system(size: 13))
+                    .textFieldStyle(PlainTextFieldStyle())
                 
-                sidebarItem(
-                    icon: "link",
-                    title: "Alle Links",
-                    tab: .links,
-                    iconColor: .orange
-                )
+                if !searchText.isEmpty {
+                    Button(action: { searchText = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
             }
+            .padding(8)
+            .background(Color(.textBackgroundColor).opacity(0.5))
+            .cornerRadius(8)
+            .padding([.horizontal, .bottom], 8)
             
-            Section(header:
-                HStack {
-                    Text("ORDNER")
+            // Listenansicht
+            // Wichtig: Hier explizit den Typ angeben, damit der Compiler nicht verwirrt wird
+            List(selection: Binding<SidebarTab?>(
+                get: { selectedTab },
+                set: { if let newValue = $0 { selectedTab = newValue } }
+            )) {
+                Section(header:
+                    Text("BIBLIOTHEK")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    Button(action: { showingNewFolderSheet = true }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                }
-            ) {
-                ForEach(folderViewModel.folders) { folder in
+                ) {
                     sidebarItem(
-                        icon: "folder.fill",
-                        title: folder.name,
-                        tab: .folder(folder),
-                        iconColor: folder.color
+                        icon: "note.text",
+                        title: "Alle Notizen",
+                        tab: .notes,
+                        iconColor: .green
                     )
-                    .contextMenu {
-                        Button(action: {
-                            // Ordner umbenennen
-                        }) {
-                            Label("Umbenennen", systemImage: "pencil")
+                    
+                    sidebarItem(
+                        icon: "link",
+                        title: "Alle Links",
+                        tab: .links,
+                        iconColor: .blue
+                    )
+                }
+                
+                Section(header:
+                    HStack {
+                        Text("ORDNER")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Button(action: { showingNewFolderSheet = true }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.secondary)
                         }
-                        
-                        Divider()
-                        
-                        Button(role: .destructive, action: {
-                                                    folderViewModel.deleteFolder(folder.id)
-                                                }) {
-                                                    Label("Löschen", systemImage: "trash")
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                .listStyle(SidebarListStyle())
-                                .frame(minWidth: 200, maxWidth: 250)
-                                .sheet(isPresented: $showingNewFolderSheet) {
-                                    FolderEditorView(isPresented: $showingNewFolderSheet)
-                                        .environmentObject(folderViewModel)
-                                }
-                                .onAppear {
-                                    folderViewModel.loadFolders()
-                                }
+                        .buttonStyle(.plain)
+                    }
+                ) {
+                    ForEach(folderViewModel.folders) { folder in
+                        sidebarItem(
+                            icon: "folder.fill",
+                            title: folder.name,
+                            tab: .folder(folder),
+                            iconColor: folder.color
+                        )
+                        .contextMenu {
+                            Button(action: {
+                                // Ordner umbenennen
+                            }) {
+                                Label("Umbenennen", systemImage: "pencil")
                             }
                             
-                            @ViewBuilder
-                            private func sidebarItem(icon: String, title: String, tab: SidebarTab, iconColor: Color) -> some View {
-                                HStack {
-                                    Image(systemName: icon)
-                                        .foregroundColor(iconColor)
-                                        .frame(width: 24)
-                                    
-                                    Text(title)
-                                        .font(.system(size: 13))
-                                    
-                                    Spacer()
-                                }
-                                .padding(.vertical, 6)
-                                .contentShape(Rectangle())
-                                .tag(tab)
+                            Divider()
+                            
+                            Button(role: .destructive, action: {
+                                folderViewModel.deleteFolder(folder.id)
+                            }) {
+                                Label("Löschen", systemImage: "trash")
                             }
                         }
+                    }
+                }
+            }
+            .listStyle(SidebarListStyle())
+        }
+        .sheet(isPresented: $showingNewFolderSheet) {
+            FolderEditorView(isPresented: $showingNewFolderSheet)
+                .environmentObject(folderViewModel)
+        }
+        .onAppear {
+            folderViewModel.loadFolders()
+        }
+    }
+    
+    @ViewBuilder
+    private func sidebarItem(icon: String, title: String, tab: SidebarTab, iconColor: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundColor(iconColor)
+                .frame(width: 20, height: 20)
+                .font(.system(size: 13))
+            
+            Text(title)
+                .font(.system(size: 13))
+                .foregroundColor(.primary)
+            
+            Spacer()
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .tag(tab)
+    }
+}
