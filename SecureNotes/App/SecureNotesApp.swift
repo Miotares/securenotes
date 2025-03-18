@@ -1,4 +1,4 @@
-// Ordner: App/SecureNotesApp.swift
+// DATEI: App/SecureNotesApp.swift (angepasst)
 import SwiftUI
 
 @main
@@ -33,6 +33,21 @@ struct SecureNotesApp: App {
                     NotificationCenter.default.post(name: NSNotification.Name("CreateNewFolder"), object: nil)
                 }
                 .keyboardShortcut("f", modifiers: [.command, .shift])
+            }
+            
+            // Menü für Tresorverwaltung
+            CommandGroup(after: .newItem) {
+                Divider()
+                
+                Button("Tresor wechseln...") {
+                    NotificationCenter.default.post(name: NSNotification.Name("SwitchVault"), object: nil)
+                }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+                
+                Button("Neuen Tresor erstellen...") {
+                    NotificationCenter.default.post(name: NSNotification.Name("CreateNewVault"), object: nil)
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift, .option])
             }
         }
     }

@@ -1,8 +1,8 @@
-// Ordner: Services/AuthService.swift
+// DATEI: Services/AuthService.swift
 import Foundation
 import LocalAuthentication
 import Security
-import CryptoKit  // Wichtiger Import für SymmetricKey
+import CryptoKit
 
 class AuthService {
     // Keychain-Konstanten
@@ -10,7 +10,7 @@ class AuthService {
         static let passwordHash = "com.securenotes.passwordHash"
         static let passwordSalt = "com.securenotes.passwordSalt"
         static let encryptionKey = "com.securenotes.encryptionKey"
-        static let service = "SecureNotes"  // Ein Dienst-Name für alle Einträge
+        static let service = "SecureNotes"
     }
     
     private let encryptionService: EncryptionService
@@ -110,7 +110,7 @@ class AuthService {
         }
     }
     
-    // MARK: - Neue Keychain-Methoden ohne Authentifizierungsabfragen
+    // MARK: - Keychain-Methoden ohne Authentifizierungsabfragen
     
     // Speichert Daten sicher im Keychain ohne Authentifizierungsabfragen
     private func saveToKeychainSecurely(data: Data, key: String) -> Bool {

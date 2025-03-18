@@ -1,10 +1,6 @@
 // DATEI: Views/ContentView.swift
 import SwiftUI
 
-// Importiere die zentrale Definition von SidebarTab
-// In einem echten Projekt würde dies durch die richtige Module-Import-Anweisung ersetzt
-// Für unser Projekt behandeln wir SidebarTabKit als Teil des Hauptmoduls
-
 struct ContentView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var selectedTab: SidebarTab = .notes
@@ -13,6 +9,8 @@ struct ContentView: View {
     @State private var selectedNote: NotesManager.Note?
     @State private var selectedLink: LinkViewModel.Link?
     @State private var showingSidebar: Bool = true
+    @State private var showingVaultSwitcher: Bool = false
+    @State private var showingNewVaultDialog: Bool = false
     
     var body: some View {
         NavigationView {
@@ -27,6 +25,13 @@ struct ContentView: View {
                         Text("SecureNotes")
                             .font(.headline)
                             .foregroundColor(.primary)
+                        
+                        if let vault = authViewModel.currentVault {
+                            Text("· \(vault.name)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        
                         Spacer()
                     }
                     .padding([.horizontal, .top])
@@ -78,7 +83,6 @@ struct ContentView: View {
             
             // Zweite Spalte: Inhaltsübersicht
             Group {
-                // Explizite Typprüfung für den Switch
                 contentForSelectedTab
             }
             .frame(minWidth: 250)
@@ -108,6 +112,33 @@ struct ContentView: View {
                 .help("Seitenleiste ein-/ausblenden")
             }
             
+            ToolbarItem(placement: .automatic) {
+                Menu {
+                    // Tresor-Verwaltungsmenü
+                    Button(action: { showingVaultSwitcher = true }) {
+                        Label("Tresor wechseln", systemImage: "folder.badge.person.crop")
+                    }
+                    
+                    Button(action: { showingNewVaultDialog = true }) {
+                        Label("Neuen Tresor erstellen", systemImage: "folder.badge.plus")
+                    }
+                    
+                    Divider()
+                    
+                    Button(action: {
+                        authViewModel.signOut()
+                    }) {
+                        Label("Abmelden", systemImage: "lock.fill")
+                    }
+                } label: {
+                    if let vault = authViewModel.currentVault {
+                        Label(vault.name, systemImage: vault.isEncrypted ? "lock.shield" : "shield")
+                    } else {
+                        Label("Tresor", systemImage: "lock.shield")
+                    }
+                }
+            }
+            
             ToolbarItem(placement: .primaryAction) {
                 Button(action: {
                     authViewModel.signOut()
@@ -120,6 +151,22 @@ struct ContentView: View {
         }
         .navigationTitle("")
         .frame(minWidth: 900, minHeight: 600)
+        .sheet(isPresented: $showingVaultSwitcher) {
+            VaultSwitcherView { vault in
+                switchToVault(vault)
+            }
+            .frame(width: 500, height: 400)
+        }
+        .sheet(isPresented: $showingNewVaultDialog) {
+            NewVaultView { vault in
+                switchToVault(vault)
+            }
+            .frame(width: 500, height: 400)
+        }
+        .onAppear {
+            setupNotifications()
+            initializeStorageService()
+        }
     }
     
     // Extrahiert die View für den ausgewählten Tab, damit der Swift-Compiler besser arbeiten kann
@@ -207,6 +254,48 @@ struct ContentView: View {
     private func toggleSidebar() {
         showingSidebar.toggle()
         NSApp.keyWindow?.firstResponder?.tryToPerform(#selector(NSSplitViewController.toggleSidebar(_:)), with: nil)
+    }
+    
+    private func setupNotifications() {
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("SwitchVault"), object: nil, queue: .main) { _ in
+            self.showingVaultSwitcher = true
+        }
+        
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("CreateNewVault"), object: nil, queue: .main) { _ in
+            self.showingNewVaultDialog = true
+        }
+        
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("CreateNewNote"), object: nil, queue: .main) { _ in
+            self.createNewNote()
+        }
+        
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("CreateNewLink"), object: nil, queue: .main) { _ in
+            self.createNewLink()
+        }
+    }
+    
+    private func initializeStorageService() {
+        // Erstelle StorageService ohne Vault-Parameter
+        let storageService = StorageService()
+        
+        // Hier könnte man die Daten laden und in die ViewModels übertragen
+        // z.B. durch eine Methode im ViewModel, die den StorageService akzeptiert
+        
+        // Alternativ könnte man auch einen globalen StorageService in der App verwenden
+        // und die ViewModels diesen beobachten lassen
+    }
+    
+    private func switchToVault(_ vault: Vault) {
+        // Hier implementieren wir den eigentlichen Tresorwechsel
+        
+        // Zuerst melden wir den Benutzer ab und löschen alle Daten im Speicher
+        authViewModel.signOut()
+        
+        // Den neu ausgewählten Tresor setzen wir als zuletzt verwendeten
+        VaultManager.shared.setCurrentVault(vault)
+        
+        // Da wir uns abgemeldet haben, erscheint jetzt automatisch der LoginView,
+        // wo der Benutzer sein Passwort für den neuen Tresor eingeben kann.
     }
 }
 

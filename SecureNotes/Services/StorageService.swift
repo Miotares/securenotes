@@ -1,12 +1,4 @@
-//
-//  StorageService.swift
-//  SecureNotes
-//
-//  Created by Merlin Kreuzkam on 17.03.25.
-//
-
-
-// DATEI: StorageService.swift
+// DATEI: Services/StorageService.swift
 import Foundation
 import Combine
 
@@ -17,17 +9,19 @@ class StorageService {
         static let links = "links.enc"
         static let folders = "folders.enc"
         
-        static func getDocumentsDirectory() -> URL {
-            let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-            return paths[0]
-        }
-        
-        static func getURL(for file: String) -> URL {
-            return getDocumentsDirectory().appendingPathComponent(file)
+        static func getURL(for file: String, in vaultPath: URL? = nil) -> URL {
+            if let vaultPath = vaultPath {
+                return vaultPath.appendingPathComponent(file)
+            } else {
+                // Fallback auf das Dokumente-Verzeichnis
+                let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+                return paths[0].appendingPathComponent(file)
+            }
         }
     }
     
     private let encryptionService: EncryptionService
+    private var vaultPath: URL?
     private var notesSubject = PassthroughSubject<[Note], Never>()
     private var linksSubject = PassthroughSubject<[Link], Never>()
     private var foldersSubject = PassthroughSubject<[Folder], Never>()
@@ -50,17 +44,37 @@ class StorageService {
         itemsSubject.eraseToAnyPublisher()
     }
     
-    init(encryptionService: EncryptionService = EncryptionService()) {
+    init(encryptionService: EncryptionService = EncryptionService(), vaultPath: URL? = nil) {
         self.encryptionService = encryptionService
+        self.vaultPath = vaultPath
+    }
+    
+    // Aktualisiert den aktiven Vault-Pfad
+    func setVaultPath(_ path: URL?) {
+        self.vaultPath = path
+        // Benachrichtige Publisher über Änderungen
+        notesSubject.send(loadNotes())
+        linksSubject.send(loadLinks())
+        foldersSubject.send(loadFolders())
+        updateItemsPublisher()
     }
     
     // MARK: - Notizen-Operationen
     
     func loadNotes() -> [Note] {
-        let url = StoragePaths.getURL(for: StoragePaths.notes)
+        let url = StoragePaths.getURL(for: StoragePaths.notes, in: vaultPath)
+        
+        if !FileManager.default.fileExists(atPath: url.path) {
+            return []
+        }
         
         do {
-            let encryptedData = try Data(contentsOf: url)
+            let fileData = try Data(contentsOf: url)
+            if fileData.isEmpty {
+                return []
+            }
+            
+            let encryptedData = fileData
             let metadataSize = MemoryLayout<Int>.size * 2
             
             guard encryptedData.count > metadataSize else {
@@ -103,7 +117,7 @@ class StorageService {
         dataToSave.append(nonce)
         dataToSave.append(encryptedData)
         
-        let url = StoragePaths.getURL(for: StoragePaths.notes)
+        let url = StoragePaths.getURL(for: StoragePaths.notes, in: vaultPath)
         
         do {
             try dataToSave.write(to: url)
@@ -136,10 +150,19 @@ class StorageService {
     // MARK: - Link-Operationen
     
     func loadLinks() -> [Link] {
-        let url = StoragePaths.getURL(for: StoragePaths.links)
+        let url = StoragePaths.getURL(for: StoragePaths.links, in: vaultPath)
+        
+        if !FileManager.default.fileExists(atPath: url.path) {
+            return []
+        }
         
         do {
-            let encryptedData = try Data(contentsOf: url)
+            let fileData = try Data(contentsOf: url)
+            if fileData.isEmpty {
+                return []
+            }
+            
+            let encryptedData = fileData
             let metadataSize = MemoryLayout<Int>.size * 2
             
             guard encryptedData.count > metadataSize else {
@@ -182,7 +205,7 @@ class StorageService {
         dataToSave.append(nonce)
         dataToSave.append(encryptedData)
         
-        let url = StoragePaths.getURL(for: StoragePaths.links)
+        let url = StoragePaths.getURL(for: StoragePaths.links, in: vaultPath)
         
         do {
             try dataToSave.write(to: url)
@@ -215,10 +238,19 @@ class StorageService {
     // MARK: - Ordner-Operationen
     
     func loadFolders() -> [Folder] {
-        let url = StoragePaths.getURL(for: StoragePaths.folders)
+        let url = StoragePaths.getURL(for: StoragePaths.folders, in: vaultPath)
+        
+        if !FileManager.default.fileExists(atPath: url.path) {
+            return []
+        }
         
         do {
-            let encryptedData = try Data(contentsOf: url)
+            let fileData = try Data(contentsOf: url)
+            if fileData.isEmpty {
+                return []
+            }
+            
+            let encryptedData = fileData
             let metadataSize = MemoryLayout<Int>.size * 2
             
             guard encryptedData.count > metadataSize else {
@@ -261,7 +293,7 @@ class StorageService {
         dataToSave.append(nonce)
         dataToSave.append(encryptedData)
         
-        let url = StoragePaths.getURL(for: StoragePaths.folders)
+        let url = StoragePaths.getURL(for: StoragePaths.folders, in: vaultPath)
         
         do {
             try dataToSave.write(to: url)

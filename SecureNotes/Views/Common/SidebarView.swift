@@ -2,10 +2,6 @@
 import SwiftUI
 import Combine
 
-// Importiere die zentrale Definition von SidebarTab
-// In einem echten Projekt würde dies durch die richtige Module-Import-Anweisung ersetzt
-// Für unser Projekt behandeln wir SidebarTabKit als Teil des Hauptmoduls
-
 struct SidebarView: View {
     @Binding var selectedTab: SidebarTab
     @StateObject private var folderViewModel = FolderViewModel()
@@ -39,7 +35,6 @@ struct SidebarView: View {
             .padding([.horizontal, .bottom], 8)
             
             // Listenansicht
-            // Wichtig: Hier explizit den Typ angeben, damit der Compiler nicht verwirrt wird
             List(selection: Binding<SidebarTab?>(
                 get: { selectedTab },
                 set: { if let newValue = $0 { selectedTab = newValue } }

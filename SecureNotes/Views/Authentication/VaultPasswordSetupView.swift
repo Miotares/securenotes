@@ -1,11 +1,9 @@
-// Ordner: Views/Authentication/SetupPasswordView.swift
+// DATEI: Views/Authentication/VaultPasswordSetupView.swift
 import SwiftUI
 import LocalAuthentication
 
-struct SetupPasswordView: View {
-    @EnvironmentObject var authViewModel: AuthViewModel
-    @Binding var isPresented: Bool
-    
+struct VaultPasswordSetupView: View {
+    let vault: Vault
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var enableBiometrics = false
@@ -13,13 +11,30 @@ struct SetupPasswordView: View {
     @State private var showingPasswordTooShortError = false
     @State private var canUseBiometrics = false
     
+    var onSetupComplete: (Vault) -> Void
+    
     private let minimumPasswordLength = 8
     
     var body: some View {
         VStack(spacing: 20) {
-            Text("Master-Passwort")
+            Text("Tresor-Passwort einrichten")
                 .font(.headline)
                 .padding(.top, 20)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Tresor: \(vault.name)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                if vault.isEncrypted {
+                    Text("Dieser Tresor ist verschlüsselt und benötigt ein Master-Passwort.")
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("Dieser Tresor ist nicht verschlüsselt, aber du kannst trotzdem ein Passwort für den Zugriff festlegen.")
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.bottom, 16)
             
             VStack(alignment: .leading, spacing: 15) {
                 SecureField("Passwort eingeben", text: $password)
@@ -56,21 +71,23 @@ struct SetupPasswordView: View {
             }
             
             VStack(alignment: .leading) {
-                Text("Wichtig: Dieses Passwort wird für die Verschlüsselung deiner Daten verwendet. Wenn du es vergisst, können deine Daten nicht wiederhergestellt werden.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(width: 300)
+                if vault.isEncrypted {
+                    Text("Wichtig: Dieses Passwort wird für die Verschlüsselung deiner Daten verwendet. Wenn du es vergisst, können deine Daten nicht wiederhergestellt werden.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(width: 300)
+                }
             }
             .padding(.vertical, 10)
             
             HStack {
-                Spacer()
-                
                 Button("Abbrechen") {
-                    isPresented = false
+                    NSApp.mainWindow?.endSheet(NSApp.keyWindow!)
                 }
                 .keyboardShortcut(.escape)
+                
+                Spacer()
                 
                 Button("Fertig") {
                     setupPassword()
@@ -95,7 +112,6 @@ struct SetupPasswordView: View {
         canUseBiometrics = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
     }
     
-    // DATEI: Views/Authentication/SetupPasswordView.swift (fix setupPassword call)
     private func setupPassword() {
         showingPasswordMismatchError = false
         showingPasswordTooShortError = false
@@ -110,8 +126,21 @@ struct SetupPasswordView: View {
             return
         }
         
-        if authViewModel.setupPassword(password, enableBiometrics: enableBiometrics) {
-            isPresented = false
+        // Hier würde normalerweise authViewModel.setupPassword aufgerufen werden
+        // Da wir in einem Blattknoten sind, müssen wir das direkt machen:
+        
+        let authService = AuthService()
+        if authService.setupPassword(password) {
+            // Wenn Biometrie aktiviert wurde, speichere den Schlüssel
+            if enableBiometrics {
+                let encryptionService = EncryptionService()
+                if let key = encryptionService.deriveKey(from: password) {
+                    authService.storeKeyInKeychain(key)
+                }
+            }
+            
+            onSetupComplete(vault)
+            NSApp.mainWindow?.endSheet(NSApp.keyWindow!)
         }
     }
 }

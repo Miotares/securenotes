@@ -1,22 +1,18 @@
-//
-//  InboxViewModel.swift
-//  SecureNotes
-//
-//  Created by Merlin Kreuzkam on 17.03.25.
-//
-
-
-// DATEI: InboxViewModel.swift
+// DATEI: ViewModels/InboxViewModel.swift
 import SwiftUI
 import Combine
 
 class InboxViewModel: ObservableObject {
     @Published var inboxItems: [AnyItem] = []
     
-    private let storageService = StorageService()
+    private let storageService: StorageService
     private var cancellables = Set<AnyCancellable>()
     
-    init() {
+    // Entferne den vault-Parameter aus dem Initialisierer
+    init(encryptionService: EncryptionService = EncryptionService()) {
+        // Anstatt einen Vault zu übergeben, verwenden wir einen Standard-StorageService
+        self.storageService = StorageService(encryptionService: encryptionService)
+        
         loadInboxItems()
         
         // Beobachte Änderungen am Speicher

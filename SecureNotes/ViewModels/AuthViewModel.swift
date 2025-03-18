@@ -1,12 +1,4 @@
-//
-//  AuthViewModel.swift
-//  SecureNotes
-//
-//  Created by Merlin Kreuzkam on 17.03.25.
-//
-
-
-// DATEI: AuthViewModel.swift
+// DATEI: ViewModels/AuthViewModel.swift
 import SwiftUI
 import LocalAuthentication
 import CryptoKit
@@ -14,6 +6,7 @@ import CryptoKit
 class AuthViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var isFirstLaunch: Bool
+    @Published var currentVault: Vault?
     
     private let authService: AuthService
     private let encryptionService: EncryptionService
@@ -90,6 +83,7 @@ class AuthViewModel: ObservableObject {
     
     func signOut() {
         encryptionService.clearCurrentKey()
+        currentVault = nil
         DispatchQueue.main.async {
             self.isAuthenticated = false
         }
