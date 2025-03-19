@@ -8,21 +8,26 @@ struct LoginView: View {
     @State private var errorMessage = ""
     @State private var showingSetupView = false
     @State private var showingVaultSelection = false
+    @State private var showingNewVaultDialog = false
     @State private var isAnimating = false
     @State private var selectedVault: Vault?
-    @State private var setupNewVault: some View = EmptyView()
+    @State private var confirmPassword = ""
+    @State private var enableBiometrics = false
+    @State private var vaultName = "My Vault"
+    @State private var vaultLocation: URL?
+    @State private var encryptVault = true
     
     var body: some View {
         ZStack {
-            // Verbesserter Hintergrund mit mehr Tiefe
+            // Enhanced background with more depth
             LinearGradient(
-                gradient: Gradient(colors: [Color("152642"), Color("27374D")]),
+                gradient: Gradient(colors: [Color.blue.opacity(0.4), Color.blue.opacity(0.1)]),
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
             
-            // Subtiles Muster für mehr Tiefe
+            // Subtle pattern for added depth
             Image(systemName: "lock.shield")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -32,7 +37,7 @@ struct LoginView: View {
                 .offset(y: -100)
             
             VStack(spacing: 40) {
-                // Logo und Titel
+                // Logo and title
                 VStack(spacing: 15) {
                     ZStack {
                         Circle()
@@ -41,7 +46,7 @@ struct LoginView: View {
                             .blur(radius: 5)
                         
                         Circle()
-                            .fill(Color("0984e3"))
+                            .fill(Color.blue)
                             .frame(width: 100, height: 100)
                             .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
                         
@@ -61,15 +66,15 @@ struct LoginView: View {
                         .font(.system(size: 38, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("Deine Notizen. Sicher verschlüsselt.")
+                    Text("Your notes. Securely encrypted.")
                         .font(.system(size: 16, design: .rounded))
                         .foregroundColor(Color.white.opacity(0.7))
                 }
                 .padding(.top, 20)
                 
-                // Tresor-Auswahl mit verbessertem Design
+                // Vault selection with improved design
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("TRESOR")
+                    Text("VAULT")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(Color.white.opacity(0.6))
                         .padding(.leading, 5)
@@ -88,7 +93,7 @@ struct LoginView: View {
                                 Image(systemName: "folder.badge.questionmark")
                                     .foregroundColor(.gray)
                                 
-                                Text("Kein Tresor ausgewählt")
+                                Text("No vault selected")
                                     .foregroundColor(Color.white.opacity(0.5))
                             }
                             
@@ -113,7 +118,7 @@ struct LoginView: View {
                 }
                 .frame(width: 360)
                 
-                // Login mit verbesserten Eingabefeldern
+                // Conditional view based on first launch
                 if authViewModel.isFirstLaunch {
                     setupNewVaultView
                 } else {
@@ -123,31 +128,33 @@ struct LoginView: View {
             .frame(width: 400)
         }
         .sheet(isPresented: $showingSetupView) {
-            SetupPasswordView(isPresented: $showingSetupView)
-                .environmentObject(authViewModel)
+            setupPasswordView
         }
         .sheet(isPresented: $showingVaultSelection) {
-            VaultSelectionView(isPresented: $showingVaultSelection, selectedVault: $selectedVault)
+            vaultSelectionView
+        }
+        .sheet(isPresented: $showingNewVaultDialog) {
+            newVaultView
         }
         .onAppear {
-            // Versuche, den zuletzt verwendeten Tresor zu laden
-            if let mostRecentVault = VaultManager.shared.vaults.sorted(by: {
-                ($0.lastOpened ?? Date.distantPast) > ($1.lastOpened ?? Date.distantPast)
-            }).first {
-                selectedVault = mostRecentVault
-            }
+            loadRecentVault()
+            
+            // Check if biometrics is available
+            let context = LAContext()
+            var error: NSError?
+            enableBiometrics = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
         }
     }
     
-    // Setup für neuen Tresor
+    // Setup for new vault
     private var setupNewVaultView: some View {
         VStack(spacing: 20) {
-            Text("Willkommen bei SecureNotes!")
+            Text("Welcome to SecureNotes!")
                 .font(.title2)
                 .bold()
                 .foregroundColor(.white)
             
-            Text("Um loszulegen, richte bitte ein Passwort für den ausgewählten Tresor ein oder erstelle einen neuen Tresor.")
+            Text("To get started, please set up a password for the selected vault or create a new vault.")
                 .multilineTextAlignment(.center)
                 .foregroundColor(Color.white.opacity(0.7))
                 .frame(maxWidth: 320)
@@ -158,23 +165,15 @@ struct LoginView: View {
             } label: {
                 HStack {
                     Image(systemName: "lock.shield")
-                    Text("Passwort einrichten")
+                    Text("Set Up Password")
                 }
                 .font(.headline)
                 .foregroundColor(.white)
                 .frame(width: 320, height: 50)
                 .background(
-                    Group {
-                        if selectedVault == nil {
-                            Color.gray.opacity(0.3)
-                        } else {
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        }
-                    }
+                    selectedVault == nil ?
+                    Color.gray.opacity(0.3) :
+                    Color.blue
                 )
                 .cornerRadius(10)
                 .shadow(color: selectedVault == nil ? Color.clear : Color.blue.opacity(0.3), radius: 5, x: 0, y: 3)
@@ -183,11 +182,11 @@ struct LoginView: View {
             .disabled(selectedVault == nil)
             
             Button {
-                showingVaultSelection = true
+                showingNewVaultDialog = true
             } label: {
                 HStack {
                     Image(systemName: "folder.badge.plus")
-                    Text("Neuen Tresor erstellen")
+                    Text("Create New Vault")
                 }
                 .font(.headline)
                 .foregroundColor(.white)
@@ -199,11 +198,11 @@ struct LoginView: View {
         }
     }
     
-    // Verbesserte Login-Form
+    // Login form
     private var loginForm: some View {
         VStack(spacing: 25) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("MASTER-PASSWORT")
+                Text("MASTER PASSWORD")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(Color.white.opacity(0.6))
                     .padding(.leading, 5)
@@ -236,25 +235,19 @@ struct LoginView: View {
                 Button {
                     authenticate()
                 } label: {
-                    Text("Anmelden")
+                    Text("Login")
                         .font(.headline)
                         .foregroundColor(.white)
                         .frame(width: 320, height: 50)
                         .background(
-                            Group {
-                                if password.isEmpty || selectedVault == nil {
-                                    Color.gray.opacity(0.3)
-                                } else {
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                }
-                            }
+                            password.isEmpty || selectedVault == nil ?
+                            Color.gray.opacity(0.3) :
+                            Color.blue
                         )
                         .cornerRadius(10)
-                        .shadow(color: (password.isEmpty || selectedVault == nil) ? Color.clear : Color.blue.opacity(0.3), radius: 5, x: 0, y: 3)
+                        .shadow(color: (password.isEmpty || selectedVault == nil) ?
+                                Color.clear : Color.blue.opacity(0.3),
+                                radius: 5, x: 0, y: 3)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .disabled(password.isEmpty || selectedVault == nil)
@@ -265,7 +258,7 @@ struct LoginView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "touchid")
-                            Text("Mit Touch ID anmelden")
+                            Text("Login with Touch ID")
                         }
                         .font(.callout)
                         .foregroundColor(.blue)
@@ -278,6 +271,187 @@ struct LoginView: View {
         }
     }
     
+    // Setup password view
+    private var setupPasswordView: some View {
+        VStack(spacing: 20) {
+            Text("Set Up Master Password")
+                .font(.headline)
+                .padding(.top, 20)
+            
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Create a strong password to protect your vault.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 10)
+                
+                SecureField("Password", text: $password)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(width: 300)
+                
+                SecureField("Confirm Password", text: $confirmPassword)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(width: 300)
+                    .padding(.bottom, 10)
+                
+                if enableBiometrics {
+                    Toggle("Enable Touch ID for future logins", isOn: $enableBiometrics)
+                        .frame(width: 300)
+                }
+            }
+            
+            Text("This password will be used to encrypt your data. If you forget it, your data cannot be recovered.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+                .padding(.top, 10)
+            
+            HStack {
+                Button("Cancel") {
+                    showingSetupView = false
+                }
+                
+                Spacer()
+                
+                Button("Save") {
+                    setupPassword()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(password.isEmpty || password != confirmPassword)
+            }
+            .padding()
+        }
+        .frame(width: 350, height: 400)
+        .padding()
+    }
+    
+    // Vault selection view
+    private var vaultSelectionView: some View {
+        VStack(spacing: 20) {
+            Text("Select Vault")
+                .font(.headline)
+                .padding(.top, 20)
+            
+            List {
+                // This would be populated from VaultManager
+                ForEach(mockVaults, id: \.id) { vault in
+                    HStack {
+                        Image(systemName: vault.isEncrypted ? "lock.fill" : "lock.open.fill")
+                            .foregroundColor(vault.isEncrypted ? .green : .orange)
+                        
+                        VStack(alignment: .leading) {
+                            Text(vault.name)
+                                .font(.headline)
+                            
+                            Text(vault.path.absoluteString)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                        
+                        Spacer()
+                        
+                        if selectedVault?.id == vault.id {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedVault = vault
+                    }
+                }
+                
+                Button("Create New Vault") {
+                    showingVaultSelection = false
+                    showingNewVaultDialog = true
+                }
+                .foregroundColor(.blue)
+            }
+            .frame(height: 200)
+            
+            HStack {
+                Button("Cancel") {
+                    showingVaultSelection = false
+                }
+                
+                Spacer()
+                
+                Button("Select") {
+                    showingVaultSelection = false
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedVault == nil)
+            }
+            .padding()
+        }
+        .frame(width: 400, height: 350)
+        .padding()
+    }
+    
+    // New vault view
+    private var newVaultView: some View {
+        VStack(spacing: 20) {
+            Text("Create New Vault")
+                .font(.headline)
+                .padding(.top, 20)
+            
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Name:")
+                    .font(.subheadline)
+                
+                TextField("My Vault", text: $vaultName)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(width: 300)
+                
+                Text("Location:")
+                    .font(.subheadline)
+                    .padding(.top, 10)
+                
+                HStack {
+                    Text(vaultLocation?.path ?? "No location selected")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    
+                    Spacer()
+                    
+                    Button("Browse...") {
+                        selectVaultLocation()
+                    }
+                }
+                .padding(8)
+                .background(Color(.windowBackgroundColor).opacity(0.3))
+                .cornerRadius(6)
+                
+                Toggle("Encrypt vault", isOn: $encryptVault)
+                    .padding(.top, 10)
+            }
+            .padding(.horizontal)
+            
+            Spacer()
+            
+            HStack {
+                Button("Cancel") {
+                    showingNewVaultDialog = false
+                }
+                
+                Spacer()
+                
+                Button("Create") {
+                    createNewVault()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(vaultName.isEmpty || vaultLocation == nil)
+            }
+            .padding()
+        }
+        .frame(width: 400, height: 350)
+        .padding()
+    }
+    
+    // Authentication methods
     private func authenticate() {
         if authViewModel.authenticate(password: password) {
             if let vault = selectedVault {
@@ -287,7 +461,7 @@ struct LoginView: View {
             password = ""
             errorMessage = ""
         } else {
-            errorMessage = "Falsches Passwort. Bitte versuche es erneut."
+            errorMessage = "Incorrect password. Please try again."
             password = ""
         }
     }
@@ -305,4 +479,71 @@ struct LoginView: View {
             }
         }
     }
+    
+    private func setupPassword() {
+        guard !password.isEmpty && password == confirmPassword else {
+            errorMessage = "Passwords do not match."
+            return
+        }
+        
+        if authViewModel.setupPassword(password, enableBiometrics: enableBiometrics) {
+            showingSetupView = false
+            
+            if let vault = selectedVault {
+                VaultManager.shared.setCurrentVault(vault)
+                authViewModel.currentVault = vault
+            }
+        } else {
+            errorMessage = "Failed to set up password. Please try again."
+        }
+    }
+    
+    private func selectVaultLocation() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.message = "Select a location for your vault"
+        panel.prompt = "Select"
+        
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                self.vaultLocation = url
+            }
+        }
+    }
+    
+    private func createNewVault() {
+        guard !vaultName.isEmpty, let location = vaultLocation else { return }
+        
+        let newVault = VaultManager.shared.createVault(
+            name: vaultName,
+            at: location,
+            encrypted: encryptVault
+        )
+        
+        selectedVault = newVault
+        showingNewVaultDialog = false
+        
+        // If this is the first vault, prompt for password setup
+        if authViewModel.isFirstLaunch {
+            showingSetupView = true
+        }
+    }
+    
+    // Load the most recently used vault
+    private func loadRecentVault() {
+        if let lastVault = VaultManager.shared.vaults.sorted(by: {
+            ($0.lastOpened ?? Date.distantPast) > ($1.lastOpened ?? Date.distantPast)
+        }).first {
+            selectedVault = lastVault
+        }
+    }
+    
+    // Mock vaults for UI testing - would be replaced with actual data from VaultManager
+    private let mockVaults: [Vault] = [
+        Vault(id: UUID(), name: "Personal", path: URL(string: "/Users/documents/vaults/personal")!, isEncrypted: true, lastOpened: Date().addingTimeInterval(-3600)),
+        Vault(id: UUID(), name: "Work", path: URL(string: "/Users/documents/vaults/work")!, isEncrypted: true, lastOpened: Date().addingTimeInterval(-86400)),
+        Vault(id: UUID(), name: "Public", path: URL(string: "/Users/documents/vaults/public")!, isEncrypted: false, lastOpened: Date().addingTimeInterval(-604800))
+    ]
 }
