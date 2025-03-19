@@ -93,13 +93,9 @@ struct Folder: Identifiable, Codable {
             let b = try container.decode(Double.self, forKey: .colorB)
             let a = try container.decode(Double.self, forKey: .colorA)
             
-            #if os(macOS)
-            self.color = Color(NSColor(calibratedRed: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: CGFloat(a)))
-            #else
-            self.color = Color(.sRGB, red: r, green: g, blue: b, opacity: a)
-            #endif
+            color = Color(red: r, green: g, blue: b, opacity: a)
         } else {
-            self.color = nil
+            color = nil
         }
     }
     
@@ -112,28 +108,11 @@ struct Folder: Identifiable, Codable {
         try container.encodeIfPresent(parentFolderId, forKey: .parentFolderId)
         
         if let color = color {
-            var r: CGFloat = 0
-            var g: CGFloat = 0
-            var b: CGFloat = 0
-            var a: CGFloat = 0
-            
-            #if os(macOS)
-            if let nsColor = NSColor(color) {
-                nsColor.getRed(&r, green: &g, blue: &b, alpha: &a)
-            }
-            #else
-            if let components = UIColor(color).cgColor.components, components.count >= 4 {
-                r = components[0]
-                g = components[1]
-                b = components[2]
-                a = components[3]
-            }
-            #endif
-            
-            try container.encode(Double(r), forKey: .colorR)
-            try container.encode(Double(g), forKey: .colorG)
-            try container.encode(Double(b), forKey: .colorB)
-            try container.encode(Double(a), forKey: .colorA)
+            let nsColor = NSColor(color)
+            try container.encode(Double(nsColor.redComponent), forKey: .colorR)
+            try container.encode(Double(nsColor.greenComponent), forKey: .colorG)
+            try container.encode(Double(nsColor.blueComponent), forKey: .colorB)
+            try container.encode(Double(nsColor.alphaComponent), forKey: .colorA)
         }
     }
 }

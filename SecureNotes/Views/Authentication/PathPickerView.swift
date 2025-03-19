@@ -31,7 +31,7 @@ struct PathPickerView: View {
                 }
             }
             .padding()
-            .background(Color.fromHex("222A35"))
+            .background(Color("222A35"))
             
             // Current path display
             HStack {
@@ -79,7 +79,7 @@ struct PathPickerView: View {
                 }
             }
             .listStyle(.plain)
-            .background(Color.fromHex("1B2838"))
+            .background(Color("1B2838"))
             
             // Bottom buttons
             HStack {
@@ -103,10 +103,10 @@ struct PathPickerView: View {
                 .cornerRadius(8)
             }
             .padding()
-            .background(Color.fromHex("222A35"))
+            .background(Color("222A35"))
         }
         .frame(width: 500, height: 400)
-        .background(Color.fromHex("1B2838"))
+        .background(Color("1B2838"))
         .onAppear {
             loadDirectoryContents()
         }

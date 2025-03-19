@@ -22,7 +22,7 @@ struct VaultCreationView: View {
     
     var body: some View {
         ZStack {
-            Color.fromHex("1B2838").ignoresSafeArea()
+            Color("1B2838").ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Header
@@ -31,7 +31,7 @@ struct VaultCreationView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.fromHex("222A35"))
+                    .background(Color("222A35"))
                 
                 if currentStep == 1 {
                     createVaultView
@@ -39,7 +39,7 @@ struct VaultCreationView: View {
                     createPasswordView
                 }
             }
-            .background(Color.fromHex("222A35"))
+            .background(Color("222A35"))
             .cornerRadius(16)
             .frame(width: 500, height: 500)
             .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)

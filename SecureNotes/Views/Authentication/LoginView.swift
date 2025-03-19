@@ -10,12 +10,13 @@ struct LoginView: View {
     @State private var showingVaultSelection = false
     @State private var isAnimating = false
     @State private var selectedVault: Vault?
+    @State private var setupNewVault: some View = EmptyView()
     
     var body: some View {
         ZStack {
             // Verbesserter Hintergrund mit mehr Tiefe
             LinearGradient(
-                gradient: Gradient(colors: [Color.fromHex("152642"), Color.fromHex("27374D")]),
+                gradient: Gradient(colors: [Color("152642"), Color("27374D")]),
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -40,7 +41,7 @@ struct LoginView: View {
                             .blur(radius: 5)
                         
                         Circle()
-                            .fill(Color.fromHex("0984e3"))
+                            .fill(Color("0984e3"))
                             .frame(width: 100, height: 100)
                             .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
                         
@@ -114,7 +115,7 @@ struct LoginView: View {
                 
                 // Login mit verbesserten Eingabefeldern
                 if authViewModel.isFirstLaunch {
-                    setupNewVault
+                    setupNewVaultView
                 } else {
                     loginForm
                 }
@@ -139,7 +140,7 @@ struct LoginView: View {
     }
     
     // Setup für neuen Tresor
-    private var setupNewVault: some View {
+    private var setupNewVaultView: some View {
         VStack(spacing: 20) {
             Text("Willkommen bei SecureNotes!")
                 .font(.title2)
@@ -163,13 +164,17 @@ struct LoginView: View {
                 .foregroundColor(.white)
                 .frame(width: 320, height: 50)
                 .background(
-                    selectedVault == nil ?
-                    Color.gray.opacity(0.3) :
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                    Group {
+                        if selectedVault == nil {
+                            Color.gray.opacity(0.3)
+                        } else {
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        }
+                    }
                 )
                 .cornerRadius(10)
                 .shadow(color: selectedVault == nil ? Color.clear : Color.blue.opacity(0.3), radius: 5, x: 0, y: 3)
@@ -236,13 +241,17 @@ struct LoginView: View {
                         .foregroundColor(.white)
                         .frame(width: 320, height: 50)
                         .background(
-                            password.isEmpty || selectedVault == nil ?
-                            Color.gray.opacity(0.3) :
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
+                            Group {
+                                if password.isEmpty || selectedVault == nil {
+                                    Color.gray.opacity(0.3)
+                                } else {
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                }
+                            }
                         )
                         .cornerRadius(10)
                         .shadow(color: (password.isEmpty || selectedVault == nil) ? Color.clear : Color.blue.opacity(0.3), radius: 5, x: 0, y: 3)

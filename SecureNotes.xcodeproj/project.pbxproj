@@ -29,33 +29,9 @@
 		D7E47E8B2D882196002BD9DD /* SecureNotesUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SecureNotesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		D7E47F2E2D89FDA5002BD9DD /* Exceptions for "SecureNotes" folder in "SecureNotes" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Helpers/ColorExtension.swift,
-			);
-			target = D7E47E6F2D882194002BD9DD /* SecureNotes */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		D7E47F2F2D89FDA5002BD9DD /* Exceptions for "SecureNotes" folder in "Copy Bundle Resources" phase from "SecureNotes" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = D7E47E6E2D882194002BD9DD /* Resources */;
-			membershipExceptions = (
-				Helpers/ColorExtension.swift,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D7E47E722D882194002BD9DD /* SecureNotes */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				D7E47F2E2D89FDA5002BD9DD /* Exceptions for "SecureNotes" folder in "SecureNotes" target */,
-				D7E47F2F2D89FDA5002BD9DD /* Exceptions for "SecureNotes" folder in "Copy Bundle Resources" phase from "SecureNotes" target */,
-			);
 			path = SecureNotes;
 			sourceTree = "<group>";
 		};
